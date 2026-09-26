@@ -5,8 +5,8 @@ public class WaypointManager : MonoBehaviour
 {
     public static WaypointManager Instance { get; private set; }
 
-    [SerializeField]
-    private List<Transform> waypoints = new();
+    [SerializeField] private List<Transform> waypoints = new();
+    public float waypointRadius;
 
     public IReadOnlyList<Transform> Waypoints => waypoints;
 

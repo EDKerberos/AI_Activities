@@ -1,10 +1,15 @@
 using UnityEngine;
+using Unity.AI.Navigation;
 
 public class DoorMovement : MonoBehaviour
 {
+    [Header("Door Config")]
     [SerializeField] private float openHeight;
     [SerializeField] private float speed;
     [SerializeField] private float moveInterval;
+    [Space]
+    [SerializeField] private NavMeshSurface surfaceMesh; // temp
+    [SerializeField] private bool isNotObstacle;
 
     private Vector3 closedPosition;
     private Vector3 openPosition;
@@ -39,6 +44,11 @@ public class DoorMovement : MonoBehaviour
 
         if (Vector3.Distance(transform.position, target) < 0.01f)
         {
+            if (isNotObstacle)
+            {
+                UpdateSurface();
+            }
+            
             intervalTimer += Time.deltaTime;
 
             if (intervalTimer >= moveInterval)
@@ -47,5 +57,10 @@ public class DoorMovement : MonoBehaviour
                 intervalTimer = 0f;
             }
         }
+    }
+
+    private void UpdateSurface()
+    {
+        surfaceMesh.UpdateNavMesh(surfaceMesh.navMeshData);
     }
 }
