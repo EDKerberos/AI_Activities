@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 8342246126250232850}
   - component: {fileID: 6108415994240358977}
   m_Layer: 0
-  m_Name: HumanoidAgent (RandomPoint,  LowPrio)
+  m_Name: HumanoidAgent (RandomPoint, LowPrio)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
