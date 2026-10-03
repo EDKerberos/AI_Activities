@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -9,7 +11,9 @@ public class AgentPatrol : MonoBehaviour
 
     [Header("Agent Config")]
     [SerializeField] private float defaultSpeed;
+    [SerializeField] private bool isAir;
 
+    [SerializeField] private List<Transform> Waypoints = new();
     private NavMeshAgent agent; 
     
     void Start()
@@ -21,8 +25,24 @@ public class AgentPatrol : MonoBehaviour
         if (WaypointManager.Instance == null)
             return;
 
-        if (WaypointManager.Instance.Waypoints.Count == 0)
-            return;
+        // if (WaypointManager.Instance.Waypoints.Count == 0)
+            // return;
+
+        if (!isAir)
+        {
+            foreach (Transform point in WaypointManager.Instance.gWaypoints)
+            {
+                Waypoints.Add(point);
+            }
+        }
+        else if (isAir)
+        {
+            foreach (Transform point in WaypointManager.Instance.aWaypoints)
+            {
+                Waypoints.Add(point);
+
+            }
+        }
 
         MoveToNextWaypoint();
     }
@@ -37,7 +57,7 @@ public class AgentPatrol : MonoBehaviour
             MoveToNextWaypoint();
         }*/
 
-        if (Vector3.Distance(transform.position, WaypointManager.Instance.Waypoints[currentPoint].position) <= WaypointManager.Instance.waypointRadius)
+        if (Vector3.Distance(transform.position, Waypoints[currentPoint].position) <= WaypointManager.Instance.waypointRadius)
         {
             MoveToNextWaypoint();
         }
@@ -58,24 +78,22 @@ public class AgentPatrol : MonoBehaviour
 
     private void MoveToNextWaypoint()
     {
-        var waypoints = WaypointManager.Instance.Waypoints;
-
         if (!randomPoint)
         {
             currentPoint++;
 
-            if (currentPoint >= waypoints.Count)
+            if (currentPoint >= Waypoints.Count)
             {
                 currentPoint = 0; // go back to point 1.
             }
         }
         else if (randomPoint)
         {
-            nextPoint = Random.Range(0, waypoints.Count);
+            nextPoint = Random.Range(0, Waypoints.Count);
 
             if (nextPoint == currentPoint)
             {
-                nextPoint = Random.Range(0, waypoints.Count);
+                nextPoint = Random.Range(0, Waypoints.Count);
             }
             else
             {
@@ -83,6 +101,6 @@ public class AgentPatrol : MonoBehaviour
             }
         }
 
-        agent.SetDestination(waypoints[currentPoint].position);
+        agent.SetDestination(Waypoints[currentPoint].position);
     }
 }
