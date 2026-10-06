@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 8342246126250232850}
   - component: {fileID: 6108415994240358977}
   m_Layer: 0
-  m_Name: GroundAgent
+  m_Name: GroundAgent (Slow)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -128,12 +128,12 @@ NavMeshAgent:
   m_Radius: 0.5
   m_Speed: 5
   m_Acceleration: 8
-  avoidancePriority: 0
+  avoidancePriority: 1
   m_AngularSpeed: 120
   m_StoppingDistance: 0
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
-  m_AutoRepath: 1
+  m_AutoRepath: 0
   m_Height: 2
   m_BaseOffset: 1
   m_WalkableMask: 5
@@ -154,3 +154,5 @@ MonoBehaviour:
   currentPoint: 0
   nextPoint: 0
   defaultSpeed: 6
+  isAir: 0
+  Waypoints: []

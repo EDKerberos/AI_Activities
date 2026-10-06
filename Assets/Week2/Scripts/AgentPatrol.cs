@@ -20,7 +20,8 @@ public class AgentPatrol : MonoBehaviour
     {
         agent = GetComponent<NavMeshAgent>();
 
-        agent.speed = defaultSpeed;
+        if (!isAir)
+            agent.speed = defaultSpeed;
 
         if (WaypointManager.Instance == null)
             return;
@@ -44,7 +45,11 @@ public class AgentPatrol : MonoBehaviour
             }
         }
 
-        MoveToNextWaypoint();
+        if (Waypoints.Count > 0)
+        {
+            currentPoint = 0;
+            agent.SetDestination(Waypoints[currentPoint].position);
+        }
     }
 
     void Update()
@@ -62,7 +67,7 @@ public class AgentPatrol : MonoBehaviour
             MoveToNextWaypoint();
         }
 
-        if (!agent.SamplePathPosition(NavMesh.AllAreas, 0.1f, out NavMeshHit navHit))
+        /*if (!agent.SamplePathPosition(NavMesh.AllAreas, 0.1f, out NavMeshHit navHit))
         {
             if ((navHit.mask & 1) != 0)
             {
@@ -73,7 +78,7 @@ public class AgentPatrol : MonoBehaviour
             {
                 agent.speed = defaultSpeed * 0.5f;
             }
-        }
+        }*/
     }
 
     private void MoveToNextWaypoint()
