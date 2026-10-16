@@ -15,6 +15,7 @@ public class AgentPatrol : MonoBehaviour
 
     [SerializeField] private List<Transform> Waypoints = new();
     private NavMeshAgent agent; 
+    [HideInInspector] public bool isPatroling;
     
     void Start()
     {
@@ -45,6 +46,7 @@ public class AgentPatrol : MonoBehaviour
             }
         }
 
+
         if (Waypoints.Count > 0)
         {
             currentPoint = 0;
@@ -55,6 +57,8 @@ public class AgentPatrol : MonoBehaviour
     void Update()
     {
         if (agent.pathPending)
+            return;
+        if (!isPatroling)
             return;
 
         /*if (agent.remainingDistance <= agent.stoppingDistance)
