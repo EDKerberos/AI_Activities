@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 public class ClickMovement : MonoBehaviour
 {
     private NavMeshAgent agent;
-    private LayerMask groundMask;
+    [SerializeField] private LayerMask groundMask;
 
     void Start()
     {

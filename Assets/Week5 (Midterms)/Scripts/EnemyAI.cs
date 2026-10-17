@@ -16,8 +16,14 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float attackRange;
     [SerializeField] private float alertTime;
     [SerializeField] private float forgetTime;
+    [SerializeField] private float checkTime;
     //[SerializeField] private float attackSpeedMul;
 
+    [Header("Color Changer")]
+    [SerializeField] private Material patrolColor;
+    [SerializeField] private Material alertColor;
+    [SerializeField] private Material attackColor;
+     
     private float alertTimer;
     private float forgetTimer;
 
@@ -25,12 +31,14 @@ public class EnemyAI : MonoBehaviour
     private Vector3 rememberPos;
 
     private NavMeshAgent agent;
+    private MeshRenderer meshRenderer;
     private AgentPatrol patrolScript;
     private Transform player;
 
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
+        meshRenderer = GetComponent<MeshRenderer>();
         patrolScript = GetComponent<AgentPatrol>();
 
         GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
@@ -50,13 +58,15 @@ public class EnemyAI : MonoBehaviour
         switch (currentState)
         {
             case State.Patrol:
+                meshRenderer.material = patrolColor;
                 Patrol(distance);
                 break;
             case State.Alert:
-                // patrolScript.isPatroling = false;
+                meshRenderer.material = alertColor;
                 Alert(distance);
                 break;
             case State.Attack:
+                meshRenderer.material = attackColor;
                 Attack(distance);
                 break;
         }
@@ -64,9 +74,10 @@ public class EnemyAI : MonoBehaviour
 
     private void Patrol(float distance)
     {
-        agent.isStopped = false;
-
-        patrolScript.isPatroling = true;
+        if (!patrolScript.isPatroling)
+        {
+            patrolScript.ResumePatrol();
+        }
 
         if (distance <= detectionRange)
         {
@@ -97,6 +108,11 @@ public class EnemyAI : MonoBehaviour
         {
             forgetTimer += Time.deltaTime;
             alertTimer = 0f;
+
+            if (forgetTimer >= checkTime)
+            {
+                agent.SetDestination(rememberPos);
+            }
 
             if (forgetTimer >= forgetTime)
             {

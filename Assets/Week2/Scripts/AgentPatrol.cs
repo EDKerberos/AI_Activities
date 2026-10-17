@@ -46,7 +46,6 @@ public class AgentPatrol : MonoBehaviour
             }
         }
 
-
         if (Waypoints.Count > 0)
         {
             currentPoint = 0;
@@ -111,5 +110,16 @@ public class AgentPatrol : MonoBehaviour
         }
 
         agent.SetDestination(Waypoints[currentPoint].position);
+    }
+
+    public void ResumePatrol()
+    {
+        isPatroling = true;
+
+        if (Waypoints.Count > 0)
+        {
+            agent.isStopped = false;
+            agent.SetDestination(Waypoints[currentPoint].position);
+        }
     }
 }
