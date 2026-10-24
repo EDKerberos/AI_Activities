@@ -1,20 +1,21 @@
 using System.Collections.Generic;
-using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.AI;
 
 public class AgentPatrol : MonoBehaviour
 {
+    [Header("Patrol Config")]
     [SerializeField] private bool randomPoint;
     [SerializeField] private int currentPoint;
-    [SerializeField] private int nextPoint; // <- for randomizer
+    [SerializeField] private int nextPoint;
 
     [Header("Agent Config")]
     [SerializeField] private float defaultSpeed;
     [SerializeField] private bool isAir;
 
-    [SerializeField] private List<Transform> Waypoints = new();
+    private List<Transform> Waypoints = new();
     private NavMeshAgent agent; 
+
     [HideInInspector] public bool isPatroling;
     
     void Start()
@@ -24,31 +25,27 @@ public class AgentPatrol : MonoBehaviour
         if (!isAir)
             agent.speed = defaultSpeed;
 
-        if (WaypointManager.Instance == null)
+        if (WaypointManager.Instance == null || agent == null)
             return;
 
-        // if (WaypointManager.Instance.Waypoints.Count == 0)
-            // return;
+        Waypoints.Clear();
 
-        if (!isAir)
-        {
-            foreach (Transform point in WaypointManager.Instance.gWaypoints)
-            {
-                Waypoints.Add(point);
-            }
-        }
-        else if (isAir)
-        {
-            foreach (Transform point in WaypointManager.Instance.aWaypoints)
-            {
-                Waypoints.Add(point);
+        var sourceWaypoints = isAir
+            ? WaypointManager.Instance.aWaypoints
+            : WaypointManager.Instance.gWaypoints;
 
-            }
+        foreach (Transform point in sourceWaypoints)
+        {
+            if (point != null)
+                Waypoints.Add(point);
         }
 
         if (Waypoints.Count > 0)
         {
-            currentPoint = 0;
+            currentPoint = Mathf.Clamp(currentPoint, 0, Waypoints.Count - 1);
+
+            isPatroling = true;
+            agent.isStopped = false;
             agent.SetDestination(Waypoints[currentPoint].position);
         }
     }
@@ -57,31 +54,17 @@ public class AgentPatrol : MonoBehaviour
     {
         if (agent.pathPending)
             return;
-        if (!isPatroling)
-            return;
 
-        /*if (agent.remainingDistance <= agent.stoppingDistance)
-        {
-            MoveToNextWaypoint();
-        }*/
+        float waypointRadius = WaypointManager.Instance != null
+            ? WaypointManager.Instance.waypointRadius
+            : 1f;
 
-        if (Vector3.Distance(transform.position, Waypoints[currentPoint].position) <= WaypointManager.Instance.waypointRadius)
+        float arrivalDistance = Mathf.Max(waypointRadius, agent.stoppingDistance);
+
+        if (agent.remainingDistance <= arrivalDistance)
         {
             MoveToNextWaypoint();
         }
-
-        /*if (!agent.SamplePathPosition(NavMesh.AllAreas, 0.1f, out NavMeshHit navHit))
-        {
-            if ((navHit.mask & 1) != 0)
-            {
-                agent.speed = defaultSpeed; // reversed for some reason
-                return;
-            }
-            else
-            {
-                agent.speed = defaultSpeed * 0.5f;
-            }
-        }*/
     }
 
     private void MoveToNextWaypoint()

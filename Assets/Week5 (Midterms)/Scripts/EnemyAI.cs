@@ -5,137 +5,268 @@ public class EnemyAI : MonoBehaviour
 {
     public enum State
     {
-        //None,
         Patrol,
         Alert,
         Attack
     }
 
+    private enum InvestigationPhase
+    {
+        Waiting,
+        MovingToPosition,
+        Searching
+    }
+
     [Header("Enemy Config")]
-    [SerializeField] private float detectionRange;
+    //[SerializeField] private float detectionRange;
     [SerializeField] private float attackRange;
-    [SerializeField] private float alertTime;
-    [SerializeField] private float forgetTime;
     [SerializeField] private float checkTime;
-    //[SerializeField] private float attackSpeedMul;
+    [Space]
+    [SerializeField] private float investigateDelay;
+    [SerializeField] private float investigateDuration;
+
+    [Header("Rotation Config")]
+    [SerializeField] private float rotationSmoothness;
+    [SerializeField] private float patrolTurnSpeed;
 
     [Header("Color Changer")]
     [SerializeField] private Material patrolColor;
     [SerializeField] private Material alertColor;
     [SerializeField] private Material attackColor;
-     
-    private float alertTimer;
-    private float forgetTimer;
 
-    private State currentState = State.Patrol;
+    private float investigateTimer;
+
+    [SerializeField] private State currentState = State.Patrol;
+    private InvestigationPhase investigationPhase;
     private Vector3 rememberPos;
 
     private NavMeshAgent agent;
     private MeshRenderer meshRenderer;
     private AgentPatrol patrolScript;
-    private Transform player;
+    private EnemyVision vision;
+
+    private Transform visiblePlayer;
 
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
         meshRenderer = GetComponent<MeshRenderer>();
         patrolScript = GetComponent<AgentPatrol>();
+        vision = GetComponent<EnemyVision>();
 
-        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
-
-        if (playerObject != null)
-            player = playerObject.transform;
+        agent.updateRotation = false;
+        agent.autoBraking = true;
     }
 
     void Update()
     {
-        if (player == null || agent == null)
+        if (agent == null || vision == null || patrolScript == null)
             return;
 
         // player detection
-        float distance = Vector3.Distance(transform.position, player.position);
+        visiblePlayer = vision.VisiblePlayer;
 
         switch (currentState)
         {
             case State.Patrol:
-                meshRenderer.material = patrolColor;
-                Patrol(distance);
+                SetMaterial(patrolColor);
+                Patrol();
                 break;
+
             case State.Alert:
-                meshRenderer.material = alertColor;
-                Alert(distance);
+                SetMaterial(alertColor);
+                Alert();
                 break;
+
             case State.Attack:
-                meshRenderer.material = attackColor;
-                Attack(distance);
+                SetMaterial(attackColor);
+                Attack();
                 break;
         }
     }
 
-    private void Patrol(float distance)
+    private void Patrol()
     {
+        agent.isStopped = false;
+
+        if (visiblePlayer != null)
+        {
+            patrolScript.isPatroling = false;
+
+            rememberPos = visiblePlayer.position;
+            currentState = State.Attack;
+            return;
+        }
+
         if (!patrolScript.isPatroling)
         {
             patrolScript.ResumePatrol();
         }
-
-        if (distance <= detectionRange)
-        {
-            patrolScript.isPatroling = false;
-            currentState = State.Alert;
-        }
     }
 
-    private void Alert(float distance)
+    private void Alert()
     {
-        agent.isStopped = true;
-        agent.ResetPath();
-
-        if (distance <= detectionRange)
+        if (visiblePlayer != null)
         {
-            // store player's position
-            rememberPos = player.position;
-            
-            alertTimer += Time.deltaTime;
-            forgetTimer = 0f;
+            rememberPos = visiblePlayer.position;
 
-            if (alertTimer >= alertTime)
-            {
-                currentState = State.Attack;
-            }
+            agent.isStopped = false;
+            currentState = State.Attack;
+            return;
         }
-        else
+
+        patrolScript.isPatroling = false;
+
+        switch (investigationPhase)
         {
-            forgetTimer += Time.deltaTime;
-            alertTimer = 0f;
+            case InvestigationPhase.Waiting:
+                agent.isStopped = true;
+                agent.ResetPath();
+                agent.velocity = Vector3.zero;
 
-            if (forgetTimer >= checkTime)
-            {
-                agent.SetDestination(rememberPos);
-            }
+                Vector3 direction = rememberPos - transform.position;
+                direction.y = 0f;
 
-            if (forgetTimer >= forgetTime)
+                bool facingTarget = true;
+
+                if (direction.sqrMagnitude > 0.01f)
+                {
+                    Quaternion targetRotation = Quaternion.LookRotation(direction);
+
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, 180f * Time.deltaTime);
+
+                    facingTarget = Quaternion.Angle(transform.rotation, targetRotation) < 2f;
+                }
+
+                if (facingTarget)
+                {
+                    investigateTimer += Time.deltaTime;
+                }
+
+                if (investigateTimer >= investigateDelay)
+                {
+                    investigateTimer = 0f;
+                    investigationPhase = InvestigationPhase.MovingToPosition;
+
+                    agent.isStopped = false;
+                    agent.SetDestination(rememberPos);
+                }
+
+                break;
+
+            case InvestigationPhase.MovingToPosition:
+                agent.isStopped = false;
+                RotateTowards(agent.desiredVelocity);
+
+                if (agent.pathPending)
+                    break;
+
+                if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+                {
+                    StartSearching();
+                    break;
+                }
+
+                if (agent.hasPath && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
+                {
+                    StartSearching();
+                }
+                else if (!agent.hasPath)
+                {
+                    if (Vector3.Distance(transform.position, rememberPos) <= 1f)
+                    {
+                        StartSearching();
+                    }
+                }
+
+                break;
+
+            case InvestigationPhase.Searching:
             {
-                currentState = State.Patrol;
+                agent.isStopped = true;
+                investigateTimer += Time.deltaTime;
+
+                if (investigateTimer >= investigateDuration)
+                {
+                    FinishInvestigation();
+                }
+
+                break;
             }
         }
     }
 
-    private void Attack(float distance)
+    private void Attack()
     {
         agent.isStopped = false;
-        
-        // store player's position
-        rememberPos = player.position;
+        patrolScript.isPatroling = false;
 
-        agent.SetDestination(player.position);
-        
-        if (distance > attackRange)
+        if (visiblePlayer == null)
         {
-            alertTimer = 0f;
-            currentState = State.Alert;
-
-            agent.SetDestination(rememberPos);
+            BeginInvestigation();
+            return;
         }
+
+        rememberPos = visiblePlayer.position;
+        agent.SetDestination(rememberPos);
+    }
+
+    private void BeginInvestigation()
+    {
+        investigationPhase = InvestigationPhase.Waiting;
+        investigateTimer = 0f;
+
+        patrolScript.isPatroling = false;
+        agent.isStopped = true;
+        agent.ResetPath();
+        agent.velocity = Vector3.zero;
+
+        currentState = State.Alert;
+    }
+
+    private void StartSearching()
+    {
+        investigationPhase = InvestigationPhase.Searching;
+        investigateTimer = 0f;
+
+        agent.isStopped = true;
+        agent.ResetPath();
+        agent.velocity = Vector3.zero;
+    }
+
+    private void FinishInvestigation()
+    {
+        investigateTimer = 0f;
+
+        agent.isStopped = false;
+        agent.ResetPath();
+
+        currentState = State.Patrol;
+        patrolScript.ResumePatrol();
+    }
+
+    private void SetMaterial(Material targetMaterial)
+    {
+        if (meshRenderer != null && targetMaterial != null)
+        {
+            meshRenderer.material = targetMaterial;
+        }
+    }
+
+    private void RotateTowards(Vector3 direction)
+    {
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.01f)
+            return;
+
+        Quaternion targetRotation = Quaternion.LookRotation(direction);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, 360f * Time.deltaTime);
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
     }
 }

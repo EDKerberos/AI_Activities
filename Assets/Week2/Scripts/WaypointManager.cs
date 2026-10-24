@@ -17,8 +17,6 @@ public class WaypointManager : MonoBehaviour
         Instance = this;
     }
 
-
-
     /* public Transform GetWaypoint(int index)
     {
         if (waypoints.Count == 0)
