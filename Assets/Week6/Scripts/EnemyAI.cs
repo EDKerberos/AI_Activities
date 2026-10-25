@@ -3,7 +3,7 @@ using UnityEngine.AI;
 
 public class EnemyAI : MonoBehaviour
 {
-    public enum State
+    private enum State
     {
         Patrol,
         Alert,
@@ -17,27 +17,30 @@ public class EnemyAI : MonoBehaviour
         Searching
     }
 
-    [Header("Enemy Config")]
-    //[SerializeField] private float detectionRange;
-    [SerializeField] private float attackRange;
-    [SerializeField] private float checkTime;
-    [Space]
-    [SerializeField] private float investigateDelay;
-    [SerializeField] private float investigateDuration;
+    //[Header("Enemy Config")]
+    //[SerializeField] private float attackRange;
 
-    [Header("Rotation Config")]
-    [SerializeField] private float rotationSmoothness;
-    [SerializeField] private float patrolTurnSpeed;
+    [Header("Search Config")]
+    [SerializeField] private float investigateDelay;
+    [SerializeField] private float searchRotationSpeed;
+    [SerializeField] private float searchRotations;
+
+    private float searchStartAngle;
+    private float searchRotatedAngle;
+
+    private float investigateTimer;
+    private bool investigationDestinationSet;
+
+    private float attackTimer;
 
     [Header("Color Changer")]
     [SerializeField] private Material patrolColor;
     [SerializeField] private Material alertColor;
     [SerializeField] private Material attackColor;
 
-    private float investigateTimer;
-
+    // dont forget to remove serialization; for inspector observation purposes
     [SerializeField] private State currentState = State.Patrol;
-    private InvestigationPhase investigationPhase;
+    [SerializeField] private InvestigationPhase investigationPhase;
     private Vector3 rememberPos;
 
     private NavMeshAgent agent;
@@ -53,9 +56,6 @@ public class EnemyAI : MonoBehaviour
         meshRenderer = GetComponent<MeshRenderer>();
         patrolScript = GetComponent<AgentPatrol>();
         vision = GetComponent<EnemyVision>();
-
-        agent.updateRotation = false;
-        agent.autoBraking = true;
     }
 
     void Update()
@@ -109,8 +109,6 @@ public class EnemyAI : MonoBehaviour
         if (visiblePlayer != null)
         {
             rememberPos = visiblePlayer.position;
-
-            agent.isStopped = false;
             currentState = State.Attack;
             return;
         }
@@ -120,28 +118,10 @@ public class EnemyAI : MonoBehaviour
         switch (investigationPhase)
         {
             case InvestigationPhase.Waiting:
+            {
                 agent.isStopped = true;
-                agent.ResetPath();
-                agent.velocity = Vector3.zero;
 
-                Vector3 direction = rememberPos - transform.position;
-                direction.y = 0f;
-
-                bool facingTarget = true;
-
-                if (direction.sqrMagnitude > 0.01f)
-                {
-                    Quaternion targetRotation = Quaternion.LookRotation(direction);
-
-                    transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, 180f * Time.deltaTime);
-
-                    facingTarget = Quaternion.Angle(transform.rotation, targetRotation) < 2f;
-                }
-
-                if (facingTarget)
-                {
-                    investigateTimer += Time.deltaTime;
-                }
+                investigateTimer += Time.deltaTime;
 
                 if (investigateTimer >= investigateDelay)
                 {
@@ -149,44 +129,59 @@ public class EnemyAI : MonoBehaviour
                     investigationPhase = InvestigationPhase.MovingToPosition;
 
                     agent.isStopped = false;
-                    agent.SetDestination(rememberPos);
+
+                    investigationDestinationSet = agent.SetDestination(rememberPos);
                 }
 
                 break;
+            }
 
             case InvestigationPhase.MovingToPosition:
+            {
                 agent.isStopped = false;
-                RotateTowards(agent.desiredVelocity);
 
                 if (agent.pathPending)
                     break;
 
-                if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+                if (!agent.hasPath)
                 {
-                    StartSearching();
-                    break;
-                }
-
-                if (agent.hasPath && agent.remainingDistance <= agent.stoppingDistance + 0.1f)
-                {
-                    StartSearching();
-                }
-                else if (!agent.hasPath)
-                {
-                    if (Vector3.Distance(transform.position, rememberPos) <= 1f)
+                    if (Vector3.Distance(transform.position, rememberPos) <= Mathf.Max(agent.stoppingDistance, 0.5f))
                     {
                         StartSearching();
                     }
+
+                    break;
+                }
+
+                if (agent.pathStatus == NavMeshPathStatus.PathInvalid || agent.pathStatus == NavMeshPathStatus.PathPartial)
+                {
+                    investigationDestinationSet = false;
+                    break;
+                }
+
+                if (agent.hasPath && agent.remainingDistance <= agent.stoppingDistance + 0.15f)
+                {
+                    StartSearching();
                 }
 
                 break;
+            }
 
             case InvestigationPhase.Searching:
             {
                 agent.isStopped = true;
-                investigateTimer += Time.deltaTime;
 
-                if (investigateTimer >= investigateDuration)
+                float rotationThisFrame = searchRotationSpeed * Time.deltaTime;
+
+                transform.Rotate(0f, rotationThisFrame, 0f, Space.World);
+
+                searchRotatedAngle += rotationThisFrame;
+
+                // how many full search rotations are needed
+                // before the search is finished; full 360 = 1 rotation
+                float requiredRotation = 360f * searchRotations;
+
+                if (searchRotatedAngle >= requiredRotation)
                 {
                     FinishInvestigation();
                 }
@@ -198,7 +193,6 @@ public class EnemyAI : MonoBehaviour
 
     private void Attack()
     {
-        agent.isStopped = false;
         patrolScript.isPatroling = false;
 
         if (visiblePlayer == null)
@@ -206,6 +200,8 @@ public class EnemyAI : MonoBehaviour
             BeginInvestigation();
             return;
         }
+
+        agent.isStopped = false;
 
         rememberPos = visiblePlayer.position;
         agent.SetDestination(rememberPos);
@@ -215,11 +211,11 @@ public class EnemyAI : MonoBehaviour
     {
         investigationPhase = InvestigationPhase.Waiting;
         investigateTimer = 0f;
+        investigationDestinationSet = false;
 
         patrolScript.isPatroling = false;
         agent.isStopped = true;
         agent.ResetPath();
-        agent.velocity = Vector3.zero;
 
         currentState = State.Alert;
     }
@@ -228,15 +224,21 @@ public class EnemyAI : MonoBehaviour
     {
         investigationPhase = InvestigationPhase.Searching;
         investigateTimer = 0f;
+        investigationDestinationSet = false;
 
         agent.isStopped = true;
         agent.ResetPath();
         agent.velocity = Vector3.zero;
+
+        // save current facing direction
+        searchStartAngle = transform.eulerAngles.y;
+        searchRotatedAngle = 0f;
     }
 
     private void FinishInvestigation()
     {
         investigateTimer = 0f;
+        investigationDestinationSet = false;
 
         agent.isStopped = false;
         agent.ResetPath();
@@ -253,20 +255,19 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    private void RotateTowards(Vector3 direction)
+    public void HearSound(Vector3 soundPos)
     {
-        direction.y = 0f;
-
-        if (direction.sqrMagnitude < 0.01f)
+        if (currentState == State.Attack)
             return;
 
-        Quaternion targetRotation = Quaternion.LookRotation(direction);
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, 360f * Time.deltaTime);
+        rememberPos = soundPos;
+
+        BeginInvestigation();
     }
 
-    private void OnDrawGizmosSelected()
+    /*private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, attackRange);
-    }
+    }*/
 }

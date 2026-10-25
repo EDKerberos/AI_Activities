@@ -441,7 +441,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyFOVVisual
   eyePoint: {fileID: 253957061}
-  viewDistance: 10
+  viewDistance: 7
   fieldOfView: 90
   rayCount: 30
   obstructionMask:
@@ -1072,7 +1072,7 @@ GameObject:
   - component: {fileID: 651428539}
   - component: {fileID: 651428533}
   - component: {fileID: 651428540}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Enemy
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1091,14 +1091,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 541882014fadcd447bad5a2eff08de6c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
-  attackRange: 7
-  checkTime: 1.5
   investigateDelay: 1
-  investigateDuration: 4.5
+  searchRotationSpeed: 120
+  searchRotations: 1
   patrolColor: {fileID: 2100000, guid: 35f3d10861301084dade8d98186ca4f0, type: 2}
   alertColor: {fileID: 2100000, guid: 9223335057c43ca4ab6880f935d843b2, type: 2}
   attackColor: {fileID: 2100000, guid: 22e217119c6abfd40af32fae0766cab6, type: 2}
   currentState: 0
+  investigationPhase: 0
 --- !u!195 &651428534
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1248,7 +1248,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyVision
   eyePoint: {fileID: 253957061}
-  viewDistance: 10
+  viewDistance: 7
   fieldOfView: 90
   playerMask:
     serializedVersion: 2
@@ -1603,6 +1603,8 @@ GameObject:
   - component: {fileID: 1137685811}
   - component: {fileID: 1137685816}
   - component: {fileID: 1137685810}
+  - component: {fileID: 1137685818}
+  - component: {fileID: 1137685817}
   m_Layer: 8
   m_Name: Player
   m_TagString: Player
@@ -1617,7 +1619,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1137685809}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7fbda779783275d4b956730e2e0f7786, type: 3}
   m_Name: 
@@ -1754,6 +1756,52 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6678bf6f7278ad44b8e2db1d5babdca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerRegistration
+--- !u!114 &1137685817
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1137685809}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 950982c51c61563488a20a93a23d5895, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerController
+  baseSpeed: 5
+  mainCamera: {fileID: 641825882}
+  stealthMultiplier: 0.75
+  stealthKey: 306
+  soundRadius: 10
+  footstepInterval: 1.5
+  enemyLayers:
+    serializedVersion: 2
+    m_Bits: 512
+--- !u!143 &1137685818
+CharacterController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1137685809}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Height: 2
+  m_Radius: 0.5
+  m_SlopeLimit: 45
+  m_StepOffset: 0.3
+  m_SkinWidth: 0.08
+  m_MinMoveDistance: 0.001
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &1142344810
 PrefabInstance:
   m_ObjectHideFlags: 0

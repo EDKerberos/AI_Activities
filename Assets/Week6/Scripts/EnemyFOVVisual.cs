@@ -6,11 +6,13 @@ public class EnemyFOVVisual : MonoBehaviour
 {
     [Header("Vision Shape")]
     [SerializeField] private Transform eyePoint;
-    [SerializeField] private float viewDistance = 10f;
+    [SerializeField] private float viewDistance;
+
     [SerializeField, Range(0f, 360f)]
-    private float fieldOfView = 90f;
+    private float fieldOfView;
+
     [SerializeField, Range(2, 100)]
-    private int rayCount = 30;
+    private int rayCount;
 
     [Header("Layers")]
     [SerializeField] private LayerMask obstructionMask;

@@ -14,6 +14,7 @@ public class AgentPatrol : MonoBehaviour
     [SerializeField] private bool isAir;
 
     private List<Transform> Waypoints = new();
+
     private NavMeshAgent agent; 
 
     [HideInInspector] public bool isPatroling;
@@ -22,11 +23,11 @@ public class AgentPatrol : MonoBehaviour
     {
         agent = GetComponent<NavMeshAgent>();
 
-        if (!isAir)
-            agent.speed = defaultSpeed;
-
         if (WaypointManager.Instance == null || agent == null)
             return;
+
+        if (!isAir)
+            agent.speed = defaultSpeed;
 
         Waypoints.Clear();
 
@@ -46,13 +47,20 @@ public class AgentPatrol : MonoBehaviour
 
             isPatroling = true;
             agent.isStopped = false;
-            agent.SetDestination(Waypoints[currentPoint].position);
+
+            SetWaypointDestination();
         }
     }
 
     void Update()
     {
+        if (!isPatroling || agent == null || Waypoints.Count == 0)
+            return;
+
         if (agent.pathPending)
+            return;
+
+        if (!agent.hasPath)
             return;
 
         float waypointRadius = WaypointManager.Instance != null
@@ -71,12 +79,7 @@ public class AgentPatrol : MonoBehaviour
     {
         if (!randomPoint)
         {
-            currentPoint++;
-
-            if (currentPoint >= Waypoints.Count)
-            {
-                currentPoint = 0; // go back to point 1.
-            }
+            currentPoint = (currentPoint + 1) % Waypoints.Count;
         }
         else if (randomPoint)
         {
@@ -92,17 +95,21 @@ public class AgentPatrol : MonoBehaviour
             }
         }
 
-        agent.SetDestination(Waypoints[currentPoint].position);
+        SetWaypointDestination();
+    }
+
+    public void SetWaypointDestination()
+    {
+        Transform target = Waypoints[currentPoint];
+
+        agent.isStopped = false;
+        agent.SetDestination(target.position);
     }
 
     public void ResumePatrol()
     {
         isPatroling = true;
 
-        if (Waypoints.Count > 0)
-        {
-            agent.isStopped = false;
-            agent.SetDestination(Waypoints[currentPoint].position);
-        }
+        SetWaypointDestination();
     }
 }
