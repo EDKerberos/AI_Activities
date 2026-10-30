@@ -1,22 +1,24 @@
 using UnityEngine;
+using Unity.Netcode;
 
-public class PlayerRegistration : MonoBehaviour
+[RequireComponent(typeof(NetworkObject))]
+public class PlayerRegistration : NetworkBehaviour
 {
-    private void OnEnable()
+    public bool IsLocallyControlled => IsSpawned && IsOwner;
+
+    public override void OnNetworkSpawn()
     {
         if (PlayerRegistry.Instance != null)
+        {
             PlayerRegistry.Instance.AddPlayer(transform);
+        }
     }
 
-    private void Start()
+    public override void OnNetworkDespawn()
     {
         if (PlayerRegistry.Instance != null)
-            PlayerRegistry.Instance.AddPlayer(transform);
-    }
-
-    private void OnDisable()
-    {
-        if (PlayerRegistry.Instance != null)
+        {
             PlayerRegistry.Instance.RemovePlayer(transform);
+        }
     }
 }

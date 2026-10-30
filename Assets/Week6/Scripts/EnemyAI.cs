@@ -38,9 +38,8 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private Material alertColor;
     [SerializeField] private Material attackColor;
 
-    // dont forget to remove serialization; for inspector observation purposes
-    [SerializeField] private State currentState = State.Patrol;
-    [SerializeField] private InvestigationPhase investigationPhase;
+    private State currentState = State.Patrol;
+    private InvestigationPhase investigationPhase;
     private Vector3 rememberPos;
 
     private NavMeshAgent agent;

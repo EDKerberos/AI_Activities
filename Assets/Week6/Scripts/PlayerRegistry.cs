@@ -1,3 +1,4 @@
+
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -22,12 +23,17 @@ public class PlayerRegistry : MonoBehaviour
 
     public void AddPlayer(Transform player)
     {
-        if (player != null)
-            players.Add(player);
+        if (player == null)
+            return;
+
+        players.Add(player);
     }
 
     public void RemovePlayer(Transform player)
     {
+        if (player == null)
+            return;
+
         players.Remove(player);
     }
 
