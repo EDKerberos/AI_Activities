@@ -13,6 +13,7 @@ using TMPro;
 public class MultiplayerMenu : MonoBehaviour
 {
     [SerializeField] private GameObject menuUI;
+    [SerializeField] private GameObject gameUI;
     [SerializeField] private TMP_InputField joinCodeInput;
     [SerializeField] private TMP_Text joinCodeText;
     [SerializeField] private TMP_Text statusText;
@@ -22,6 +23,11 @@ public class MultiplayerMenu : MonoBehaviour
 
     private async void Start()
     {
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            menuUI.SetActive(false);
+        }
+
         await UnityServices.InitializeAsync();
 
         if (!AuthenticationService.Instance.IsSignedIn)
@@ -53,8 +59,9 @@ public class MultiplayerMenu : MonoBehaviour
                 joinCodeText.text = "Join Code: " + joinCode;
                 statusText.text = "Host started successfully!";
 
-                //if (menuUI != null)
-                    //menuUI.SetActive(false);
+                if (menuUI != null)
+                    gameUI.SetActive(true);
+                    menuUI.SetActive(false);
             }
             else
             {
@@ -91,7 +98,10 @@ public class MultiplayerMenu : MonoBehaviour
             NetworkManager.Singleton.StartClient();
 
             if (menuUI != null) 
+            {
+                gameUI.SetActive(true);
                 menuUI.SetActive(false);
+            }
         }
         catch (RelayServiceException e)
         {

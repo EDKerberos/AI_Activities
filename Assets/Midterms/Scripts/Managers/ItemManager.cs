@@ -2,9 +2,9 @@ using UnityEngine;
 using Unity.Netcode;
 using TMPro;
 
-public class CandyManager : NetworkBehaviour
+public class ItemManager : NetworkBehaviour
 {
-    public static CandyManager Instance { get; private set; }
+    public static ItemManager Instance { get; private set; }
 
     private NetworkVariable<int> candyCount = new NetworkVariable<int>(
         0,
@@ -13,6 +13,7 @@ public class CandyManager : NetworkBehaviour
     );
 
     [SerializeField] private TMP_Text candyCountText;
+    [SerializeField] private TMP_Text lightChargeText;
 
     public int CandyCount => candyCount.Value;
 
@@ -64,6 +65,11 @@ public class CandyManager : NetworkBehaviour
 
     private void UpdateCandyUI(int amount)
     {
-        candyCountText.text = "Candy: " + amount;
+        candyCountText.text = "Candies: " + amount;
+    }
+
+    public void UpdateLightUI(int amount)
+    {
+        lightChargeText.text = "Shakelight Uses: " + amount;
     }
 }

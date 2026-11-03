@@ -1,19 +1,22 @@
 using UnityEngine;
 using Unity.Netcode;
+using System.Collections;
 
 [RequireComponent(typeof(CharacterController))]
 [RequireComponent(typeof(PlayerRegistration))]
 public class PlayerControllerNetworking : NetworkBehaviour
 {
-    [SerializeField] private bool isHostPlayer;
-
     [Header("Movement Config")]
     [SerializeField] private float baseSpeed;
     [SerializeField] private Transform mainCamera;
 
+    [Header("Gravity")]
+    [SerializeField] private float gravity;
+    private float verticalVelocity;
+
     [Header("Stealth Config")]
     [SerializeField] private float stealthMultiplier;
-    [SerializeField] private KeyCode stealthKey = KeyCode.LeftControl;
+    [SerializeField] private KeyCode stealthKey = KeyCode.LeftControl; // default is lctrl
     
     private NetworkVariable<bool> stealthMode = new NetworkVariable<bool>(
         false,
@@ -23,10 +26,23 @@ public class PlayerControllerNetworking : NetworkBehaviour
 
     public bool IsStealthMode => stealthMode.Value;
 
+    [Header("Light Powerup")]
+    [SerializeField] private KeyCode lightKey = KeyCode.E; // default is e
+    [SerializeField] private float lightRange;
+
+    private NetworkVariable<int> lightCharges = new NetworkVariable<int>(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    public int LightCharges => lightCharges.Value;
+
     [Header("Sounds Config")]
     [SerializeField] private float soundRadius;
     [SerializeField] private float footstepInterval;
     [SerializeField] private LayerMask enemyLayers;
+
     private float footstepTimer;
 
     private NetworkVariable<bool> isTrapped = new NetworkVariable<bool>(
@@ -39,6 +55,7 @@ public class PlayerControllerNetworking : NetworkBehaviour
 
     private CharacterController controller;
 
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -48,7 +65,25 @@ public class PlayerControllerNetworking : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        controller.enabled = IsOwner;
+        controller.enabled = false;
+
+        lightCharges.OnValueChanged += OnLightChargesChanged;
+
+        if (IsOwner)
+        {
+            ItemManager.Instance?.UpdateLightUI(lightCharges.Value);
+            StartCoroutine(InitializeController());
+        } 
+    }
+
+    private IEnumerator InitializeController()
+    {
+        yield return null;
+
+        if (!IsSpawned || !IsOwner)
+            yield break;
+
+        controller.enabled = true;
     }
 
     public override void OnGainedOwnership()
@@ -63,15 +98,7 @@ public class PlayerControllerNetworking : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsSpawned || !IsOwner)
-            return;
-
-        // prevents host/player 1 from
-        // controlling player 2
-        if (isHostPlayer && OwnerClientId != NetworkManager.ServerClientId)
-            return;
-
-        if (!isHostPlayer && OwnerClientId == NetworkManager.ServerClientId)
+        if (!IsSpawned || !IsOwner || !controller.enabled)
             return;
 
         // stop movement when being haunted
@@ -79,6 +106,11 @@ public class PlayerControllerNetworking : NetworkBehaviour
         {
             footstepTimer = 0f;
             return;
+        }
+
+        if (Input.GetKeyDown(lightKey) && lightCharges.Value > 0)
+        {
+            UseLightServerRpc();
         }
 
         // go to stealth mode mama
@@ -114,7 +146,20 @@ public class PlayerControllerNetworking : NetworkBehaviour
 
         float speed = stealthMode.Value ? baseSpeed * stealthMultiplier : baseSpeed;
 
-        controller.Move(moveDirection * speed * Time.deltaTime);
+        Vector3 horizontalMovement = moveDirection * speed;
+
+        // grav
+        if (controller.isGrounded && verticalVelocity < 0f)
+        {
+            verticalVelocity = -2f;
+        }
+
+        verticalVelocity += gravity * Time.deltaTime;
+
+        Vector3 finalMovement = horizontalMovement;
+        finalMovement.y = verticalVelocity;
+
+        controller.Move(finalMovement * Time.deltaTime);
 
         footstepTimer += Time.deltaTime;
 
@@ -135,6 +180,54 @@ public class PlayerControllerNetworking : NetworkBehaviour
         }
     }
 
+    // likely a temporary way to kill the ghosts;
+    // in the case that this game gets developed further
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+    private void UseLightServerRpc()
+    {
+        // if no charges cant use
+        if (!IsSpawned || lightCharges.Value <= 0)
+            return;
+
+        Collider[] nearbyColliders = Physics.OverlapSphere(transform.position, lightRange, enemyLayers);
+
+        EnemyAINetworking closestEnemy = null;
+        float closestDistance = float.MaxValue;
+
+        // in case there are multiple enemies
+        foreach (Collider col in nearbyColliders)
+        {
+            EnemyAINetworking enemy = col.GetComponentInParent<EnemyAINetworking>();
+
+            if (enemy == null || !enemy.IsSpawned)
+                continue;
+
+            float distance = Vector3.Distance(transform.position, enemy.transform.position);
+
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestEnemy = enemy;
+            }
+        }
+
+        // in case we want the player to keep the charge
+        // if there's no nearby ghost... but the player can
+        // miss.. not my fault..
+        if (closestEnemy == null)
+            return;
+
+        lightCharges.Value--;
+
+        closestEnemy.DestroyByLightServer();
+    }
+
+    private void OnLightChargesChanged(int previous, int current)
+    {
+        if (IsOwner)
+            ItemManager.Instance?.UpdateLightUI(current);
+    }
+
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     private void EmitFootstepServerRpc()
     {
@@ -150,11 +243,25 @@ public class PlayerControllerNetworking : NetworkBehaviour
         Debug.Log("sound made auhh.");
     }
 
+    // server side stuff
     public void SetTrappedServer(bool trapped)
     {
         if (!IsServer)
             return;
 
         isTrapped.Value = trapped;
+    }
+
+    public void AddLightChargeServer()
+    {
+        if (!IsServer)
+            return;
+
+        lightCharges.Value++;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        lightCharges.OnValueChanged -= OnLightChargesChanged;
     }
 }

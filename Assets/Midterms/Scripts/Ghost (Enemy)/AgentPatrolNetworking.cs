@@ -10,31 +10,32 @@ public class AgentPatrolNetworking : MonoBehaviour
     [SerializeField] private int currentPoint;
     [SerializeField] private int nextPoint;
 
+    private int patrolDirection = 1;
+
     [Header("Agent Config")]
     [SerializeField] private float defaultSpeed;
-    [SerializeField] private bool isAir;
+    //[SerializeField] private bool isAir;
 
     private List<Transform> Waypoints = new();
 
-    private NavMeshAgent agent; 
+    private NavMeshAgent agent;
+    private EnemyAINetworking enemyAI;
 
     [HideInInspector] public bool isPatroling;
     
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
+        enemyAI = GetComponent<EnemyAINetworking>();
 
-        if (WaypointManager.Instance == null || agent == null)
+        if (MultipleWaypointsManager.Instance == null || agent == null || enemyAI == null)
             return;
 
-        if (!isAir)
-            agent.speed = defaultSpeed;
+        agent.speed = defaultSpeed;
+
+        var sourceWaypoints = MultipleWaypointsManager.Instance.GetWaypointsFor(enemyAI);
 
         Waypoints.Clear();
-
-        var sourceWaypoints = isAir
-            ? WaypointManager.Instance.aWaypoints
-            : WaypointManager.Instance.gWaypoints;
 
         foreach (Transform point in sourceWaypoints)
         {
@@ -42,19 +43,21 @@ public class AgentPatrolNetworking : MonoBehaviour
                 Waypoints.Add(point);
         }
 
-        if (Waypoints.Count > 0)
+        if (Waypoints.Count == 0)
         {
-            currentPoint = Mathf.Clamp(currentPoint, 0, Waypoints.Count - 1);
-
-            if (NetworkManager.Singleton == null ||
-                !NetworkManager.Singleton.IsServer)
-                return;
-
-            isPatroling = true;
-            agent.isStopped = false;
-
-            SetWaypointDestination();
+            Debug.LogWarning($"{gameObject.name} is missing waypoints");
+            return;
         }
+
+        currentPoint = Mathf.Clamp(currentPoint, 0, Waypoints.Count - 1);
+
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            return;
+
+        isPatroling = true;
+        agent.isStopped = false;
+
+        SetWaypointDestination();
     }
 
     void Update()
@@ -65,15 +68,10 @@ public class AgentPatrolNetworking : MonoBehaviour
         if (!isPatroling || agent == null || Waypoints.Count == 0)
             return;
 
-        if (agent.pathPending)
+        if (agent.pathPending || !agent.hasPath)
             return;
 
-        if (!agent.hasPath)
-            return;
-
-        float waypointRadius = WaypointManager.Instance != null
-            ? WaypointManager.Instance.waypointRadius
-            : 1f;
+        float waypointRadius = WaypointManager.Instance != null ? WaypointManager.Instance.waypointRadius : 1f;
 
         float arrivalDistance = Mathf.Max(waypointRadius, agent.stoppingDistance);
 
@@ -85,21 +83,35 @@ public class AgentPatrolNetworking : MonoBehaviour
 
     private void MoveToNextWaypoint()
     {
-        if (!randomPoint)
+        if (randomPoint)
         {
-            currentPoint = (currentPoint + 1) % Waypoints.Count;
-        }
-        else if (randomPoint)
-        {
-            nextPoint = Random.Range(0, Waypoints.Count);
+            if (Waypoints.Count <= 1)
+                return;
 
-            if (nextPoint == currentPoint)
+            int nextPoint;
+
+            do
             {
                 nextPoint = Random.Range(0, Waypoints.Count);
-            }
-            else
+
+            } while (nextPoint == currentPoint);
+
+            currentPoint = nextPoint;
+        }
+        else
+        {
+            currentPoint += patrolDirection;
+
+            // ping-pong patrol
+            if (currentPoint >= Waypoints.Count - 1)
             {
-                currentPoint = nextPoint;
+                currentPoint = Waypoints.Count - 1;
+                patrolDirection = -1;
+            }
+            else if (currentPoint <= 0)
+            {
+                currentPoint = 0;
+                patrolDirection = 1;
             }
         }
 
@@ -108,6 +120,11 @@ public class AgentPatrolNetworking : MonoBehaviour
 
     public void SetWaypointDestination()
     {
+        if (Waypoints.Count == 0 || agent == null)
+            return;
+
+        currentPoint = Mathf.Clamp(currentPoint, 0, Waypoints.Count - 1);
+
         Transform target = Waypoints[currentPoint];
 
         agent.isStopped = false;
@@ -116,6 +133,9 @@ public class AgentPatrolNetworking : MonoBehaviour
 
     public void ResumePatrol()
     {
+        if (Waypoints.Count == 0 || agent == null)
+            return;
+
         isPatroling = true;
 
         SetWaypointDestination();

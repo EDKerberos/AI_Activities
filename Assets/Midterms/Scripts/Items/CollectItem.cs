@@ -2,15 +2,16 @@ using UnityEngine;
 using Unity.Netcode;
 
 [RequireComponent(typeof(NetworkObject))]
-public class CandyCollectible : NetworkBehaviour
+public abstract class CollectItem : NetworkBehaviour
 {
     [SerializeField] private float collectionRange;
+
     private GameObject itemVisual;
     private Collider itemCollider;
 
-    private bool isCollected;
+    protected bool isCollected;
 
-    private void Awake()
+    protected virtual void Awake()
     {
         itemVisual = transform.Find("2DSprite")?.gameObject;
         itemCollider = GetComponent<Collider>();
@@ -60,10 +61,12 @@ public class CandyCollectible : NetworkBehaviour
 
         isCollected = true;
 
-        CandyManager.Instance.AddCandy();
+        OnCollected(player);
 
         NetworkObject.Despawn(false);
     }
+
+    protected abstract void OnCollected(NetworkObject player);
 
     public override void OnNetworkDespawn()
     {
@@ -73,7 +76,6 @@ public class CandyCollectible : NetworkBehaviour
         if (itemCollider != null)
             itemCollider.enabled = false;
     }
-
     
     private void OnDrawGizmosSelected()
     {
@@ -83,5 +85,4 @@ public class CandyCollectible : NetworkBehaviour
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, 0.15f);
     }
-
 }

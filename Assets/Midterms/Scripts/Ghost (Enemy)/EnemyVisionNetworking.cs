@@ -16,6 +16,12 @@ public class EnemyVisionNetworking : NetworkBehaviour
 
     private GameObject fovVisual;
 
+    private NetworkVariable<bool> fovVisible = new NetworkVariable<bool>(
+        true,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     public Transform VisiblePlayer { get; private set; }
 
     private void Start()
@@ -23,6 +29,13 @@ public class EnemyVisionNetworking : NetworkBehaviour
         Transform fov = transform.Find("FOV");
 
         fovVisual = fov.gameObject;
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        fovVisible.OnValueChanged += OnFOVVisibilityChanged;
+
+        ApplyFOVVisibility(fovVisible.Value);
     }
 
     private void Update()
@@ -94,7 +107,21 @@ public class EnemyVisionNetworking : NetworkBehaviour
 
     public void SetFOVVisible(bool visible)
     {
-        fovVisual.SetActive(visible);
+        if (!IsServer || !IsSpawned)
+            return;
+
+        fovVisible.Value = visible;
+    }
+
+    private void OnFOVVisibilityChanged(bool previous, bool current)
+    {
+        ApplyFOVVisibility(current);
+    }
+
+    private void ApplyFOVVisibility(bool visible)
+    {
+        if (fovVisual != null)
+            fovVisual.SetActive(visible);
     }
 
     private void OnDrawGizmosSelected()

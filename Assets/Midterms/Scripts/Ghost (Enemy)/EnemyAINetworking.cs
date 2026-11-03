@@ -39,6 +39,12 @@ public class EnemyAINetworking : NetworkBehaviour
 
     private float attackTimer;
 
+    private NetworkVariable<bool> isDead = new NetworkVariable<bool>(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     /*[Header("Color Changer")]
     [SerializeField] private Material patrolColor;
     [SerializeField] private Material alertColor;
@@ -55,17 +61,25 @@ public class EnemyAINetworking : NetworkBehaviour
 
     private Transform visiblePlayer;
 
-    void Start()
+    void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         //meshRenderer = GetComponent<MeshRenderer>();
         patrolScript = GetComponent<AgentPatrolNetworking>();
         vision = GetComponent<EnemyVisionNetworking>();
-    }       
+    }     
+    
+    public override void OnNetworkSpawn()
+    {
+        isDead.OnValueChanged += OnDeadChanged;
+
+        if (isDead.Value)
+            ApplyDeadState();
+    }
 
     void Update()
     {
-        if (!IsSpawned || !IsServer)
+        if (!IsSpawned || !IsServer || isDead.Value)
             return;
 
         if (agent == null || vision == null || patrolScript == null)
@@ -276,7 +290,6 @@ public class EnemyAINetworking : NetworkBehaviour
             return;
         }
 
-
         killTimer += Time.deltaTime;
 
         if (killTimer >= killTime)
@@ -333,6 +346,39 @@ public class EnemyAINetworking : NetworkBehaviour
         }
     }*/
 
+    public void DestroyByLightServer()
+    {
+        if (!IsServer || !IsSpawned || isDead.Value)
+            return;
+
+        if (trappedPlayer)
+            trappedPlayer.SetTrappedServer(false);
+
+        isDead.Value = true;
+    }
+
+    private void OnDeadChanged(bool previous, bool current)
+    {
+        if (current)
+            ApplyDeadState();
+    }
+
+    private void ApplyDeadState()
+    {
+        if (agent != null)
+            agent.enabled = false;
+
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
+        {
+            renderer.enabled = false;
+        }
+
+        foreach (Collider col in GetComponentsInChildren<Collider>())
+        {
+            col.enabled = false;
+        }
+    }
+
     public void HearSound(Vector3 soundPos)
     {
         if (currentState == State.Attack)
@@ -341,6 +387,11 @@ public class EnemyAINetworking : NetworkBehaviour
         rememberPos = soundPos;
 
         BeginInvestigation();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        isDead.OnValueChanged -= OnDeadChanged;
     }
 
     [ClientRpc]

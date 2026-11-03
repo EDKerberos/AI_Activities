@@ -1,5 +1,6 @@
 
 using UnityEngine;
+using Unity.Netcode;
 
 public class CameraFollower : MonoBehaviour
 {
@@ -7,10 +8,28 @@ public class CameraFollower : MonoBehaviour
 
     [Header("Camera Settings")]
     [SerializeField] private Vector3 offset = new Vector3(0f, 12f, -8f);
-    [SerializeField] private float followSpeed = 8f;
+    [SerializeField] private float followSpeed;
+
+    private void OnEnable()
+    {
+        target = null;
+    }
 
     private void LateUpdate()
     {
+        // Always validate that our target is still locally owned.
+        if (target != null)
+        {
+            PlayerRegistration registration =
+                target.GetComponent<PlayerRegistration>();
+
+            if (registration == null || !registration.IsLocallyControlled)
+            {
+                Debug.Log("CAMERA: Previous target is no longer locally controlled.");
+                target = null;
+            }
+        }
+
         if (target == null)
             FindLocalPlayer();
 
@@ -33,7 +52,9 @@ public class CameraFollower : MonoBehaviour
     private void FindLocalPlayer()
     {
         if (PlayerRegistry.Instance == null)
+        {
             return;
+        }
 
         foreach (Transform player in PlayerRegistry.Instance.Players)
         {
@@ -49,6 +70,12 @@ public class CameraFollower : MonoBehaviour
             if (registration.IsLocallyControlled)
             {
                 target = player;
+
+                Debug.Log(
+                    $"CAMERA CONNECTED | " +
+                    $"Player: {player.name} | " +
+                    $"Owner: {player.GetComponent<NetworkObject>().OwnerClientId}"
+                );
 
                 return;
             }
