@@ -17,17 +17,10 @@ public class CameraFollower : MonoBehaviour
 
     private void LateUpdate()
     {
-        // Always validate that our target is still locally owned.
         if (target != null)
         {
             PlayerRegistration registration =
                 target.GetComponent<PlayerRegistration>();
-
-            if (registration == null || !registration.IsLocallyControlled)
-            {
-                Debug.Log("CAMERA: Previous target is no longer locally controlled.");
-                target = null;
-            }
         }
 
         if (target == null)
